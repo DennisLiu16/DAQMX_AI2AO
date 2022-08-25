@@ -193,7 +193,8 @@ int32 CVICALLBACK W_DoneCallback(TaskHandle taskHandle, int32 status, void* call
 
 	while ((* (info->p2_r_ptr) - *(info->p2_w_ptr) + R_BUF_LEN * *(info->round_ptr)) <= 0) {/* spin lock if r_ptr lead w_ptr < N_SAMPLES*/ }
 
-	DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 10.0, DAQmx_Val_GroupByChannel, *(info->p2_w_ptr), NULL, NULL));
+	// https://forums.ni.com/t5/Measurement-Studio-for-VC/DAQmxWriteAnalogF64-slow-in-communication/td-p/3280633
+	 DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 10.0, DAQmx_Val_GroupByChannel, *(info->p2_w_ptr), NULL, NULL));
 
 	/* Move w_ptr */
 	bool BufOverFlow = ((*(info->p2_r_ptr) + R_CH_NUM * N_SAMPLES - info->data) >= R_BUF_LEN);
