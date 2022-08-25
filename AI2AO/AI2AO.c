@@ -45,7 +45,7 @@ int32 CVICALLBACK W_DoneCallback(TaskHandle taskHandle, int32 status, void* call
 /* Make a struct for R_Callback */
 typedef struct RCallbackInfo {
 	float64* const data;
-	float64** const p2_r_ptr;        /* pointer point to r_ptr */
+	const float64** p2_r_ptr;        /* pointer point to r_ptr */
 	int32* round_ptr;
 }RCallbackInfo;
 
@@ -53,7 +53,7 @@ typedef struct RCallbackInfo {
 typedef struct WCallbackInfo {
 	const float64* const data;
 	const float64** const p2_r_ptr;
-	float64** const p2_w_ptr;      /* should modify by write callback */
+	const float64**  p2_w_ptr;      /* should modify by write callback */
 	int32* round_ptr;
 }WCallbackInfo;
 
@@ -193,7 +193,7 @@ int32 CVICALLBACK W_DoneCallback(TaskHandle taskHandle, int32 status, void* call
 
 	WCallbackInfo* info = (WCallbackInfo*)callbackData;
 
-	while (*(info->p2_r_ptr) - *(info->p2_w_ptr) + R_BUF_LEN * *(info->round_ptr)) {/* spin lock if r_ptr lead w_ptr < N_SAMPLES*/ }
+	while ((* (info->p2_r_ptr) - *(info->p2_w_ptr) + R_BUF_LEN * *(info->round_ptr)) <= 0) {/* spin lock if r_ptr lead w_ptr < N_SAMPLES*/ }
 
 	DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 10.0, DAQmx_Val_GroupByChannel, *(info->p2_w_ptr), NULL, NULL));
 
@@ -201,7 +201,7 @@ int32 CVICALLBACK W_DoneCallback(TaskHandle taskHandle, int32 status, void* call
 	bool BufOverFlow = ((*(info->p2_r_ptr) + R_CH_NUM * N_SAMPLES - info->data) >= R_BUF_LEN);
 	if (BufOverFlow) {
 		*(info->p2_w_ptr) = info->data;
-		*(info->round_ptr)--;
+		*(info->round_ptr) -= 1;
 	} else { *(info->p2_w_ptr) += R_CH_NUM * N_SAMPLES; }
 
 Error:
