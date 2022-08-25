@@ -91,7 +91,6 @@ int main()
 	/* TODO: Verify 讀和寫 per channel 數量不一樣可不可以? */
 	/* TODO: WHY 兩個的 CLK 不一樣 */
 	DAQmxErrChk(DAQmxCfgSampClkTiming(AOtaskHandle, "", R_SAMPLING_RATE / 2, DAQmx_Val_Rising, DAQmx_Val_FiniteSamps, N_SAMPLES));
-	DAQmxErrChk(DAQmxCfgDigEdgeStartTrig(AOtaskHandle, trigName, DAQmx_Val_Rising));
 
 	struct RCallbackInfo r_info = {
 	   .data = AIdata,
@@ -114,10 +113,9 @@ int main()
 	DAQmxErrChk(DAQmxRegisterDoneEvent(AOtaskHandle, 0, W_DoneCallback, w_info_ptr)); // TODO: open new thread avoid stuck ?
 
 	/* Preload Default Value to Write RAM Buf */
-	 DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 10.0, DAQmx_Val_GroupByChannel, AIdata, NULL, NULL));
+	DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 10.0, DAQmx_Val_GroupByChannel, AIdata, NULL, NULL));
 
 	
-
     /*********************************************/
 	// DAQmx Start Code
 	/*********************************************/
