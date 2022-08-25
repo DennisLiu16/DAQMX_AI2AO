@@ -125,7 +125,7 @@ int main()
 	DAQmxErrChk(DAQmxStartTask(AOtaskHandle));
 
 	printf("Acquiring samples continuously. Press Enter to interrupt\n");
-	printf("\nRead:\tAI\tTotal:\tAI\n");
+	printf("\nRead:\tAI\tTotal:\tAI\tround\n");
 	getchar();
 
 
@@ -259,7 +259,7 @@ int32 CVICALLBACK R_EveryNCallback(TaskHandle taskHandle, int32 everyNsamplesEve
 		*(info->round_ptr) += 1;
 	}else { *(info->p2_r_ptr) += N_SAMPLES * R_CH_NUM; }
 
-	printf("\t%d\t\t%d\r", (int)readAI, (int)(totalAI += readAI));
+	printf("\t%d\t\t%d\t%5d\r", (int)readAI, (int)(totalAI += readAI), *(info->round_ptr));
 	fflush(stdout);
 
 Error:
