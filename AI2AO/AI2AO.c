@@ -3,6 +3,9 @@
 #include <stdbool.h>
 #include "NIDAQmx.h"
 
+// Ref
+// https://mbb.eet-china.com/blog/72875-232856.html
+
 // XXX: Assume 
 // 1. R_BUF_LEN % N_SAMPLES == 0 --> 如果不是會有資料遺漏 (WCallback 實作)!
 // 2. 
@@ -79,7 +82,7 @@ int main()
 
 	DAQmxErrChk(DAQmxCfgSampClkTiming(AItaskHandle, "", R_SAMPLING_RATE, DAQmx_Val_Rising, DAQmx_Val_ContSamps, R_PER_CH));
 	DAQmxErrChk(GetTerminalNameWithDevPrefix(AItaskHandle, "ai/StartTrigger", trigName));
-	DAQmxErrChk(DAQmxSetBufInputBufSize(AItaskHandle, R_BUF_LEN * 2)); // TODO: check this
+	DAQmxErrChk(DAQmxSetBufInputBufSize(AItaskHandle, R_BUF_LEN * 2)); // overright pc input buf size
 
 	/* Output Task Config */
 	DAQmxErrChk(DAQmxCreateTask("", &AOtaskHandle));
