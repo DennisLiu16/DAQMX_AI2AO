@@ -3,12 +3,10 @@
 #include <stdbool.h>
 #include "NIDAQmx.h"
 
+// aborted
+
 // Ref
 // https://mbb.eet-china.com/blog/72875-232856.html
-
-// XXX: Assume 
-// 1. R_BUF_LEN % N_SAMPLES == 0 --> 如果不是會有資料遺漏 (WCallback 實作)!
-// 2. 
 
 /* Define BOS1901 */
 #define BOS1901_ON 0
@@ -27,8 +25,11 @@ int32 CVICALLBACK R_EveryNCallback(TaskHandle taskHandle, int32 everyNsamplesEve
 int32 CVICALLBACK W_DoneCallback(TaskHandle taskHandle, int32 status, void* callbackData);
 
 /* Number define */
-#define R_SAMPLING_RATE 10000.0
-#define R_PER_CH 10000 /* Read samples per channel */
+#define PPCAT_NX(A, B) (A ## B)
+#define DEV_NAME    "Dev2/"
+#define R_CH_ORIGIN PPCAT_NX(DEV_NAME, "ai6") /* original signal */
+#define R_CH_TEST   PPCAT_NX(DEV_NAME, "ai0") /* test channel's name. Test only, will be deleted*/
+#define W_CH        PPCAT_NX(DEV_NAME, "ao0") /* write channel's name */
 
 #if BOS1901_ON == 0
 #define R_CH_NUM  2
@@ -36,13 +37,12 @@ int32 CVICALLBACK W_DoneCallback(TaskHandle taskHandle, int32 status, void* call
 #define R_CH_NUM  1
 #endif
 
+#define R_SAMPLING_RATE 10000.0
+#define R_PER_CH 10000 /* Read samples per channel */
+
 #define R_BUF_LEN (R_PER_CH*R_CH_NUM) /* Buffen len */
 
-#define R_CH_ORIGIN "Dev2/ai6" /* original signal */
-#define R_CH_TEST   "Dev2/ai0" /* test channel's name. Test only, will be deleted*/
-#define W_CH        "Dev2/ao0" /* write channel's name */
-
-#define N_SAMPLES 20 /* read call back len and write len */
+#define N_SAMPLES 25 /* read call back len and write len */
 
 /* Struct define */
 /* Make a struct for R_Callback */
@@ -71,6 +71,9 @@ int main()
 	float64* r_ptr = AIdata;
 	int32    round = 0;
 
+	/* Reset DAQ */
+	DAQmxResetDevice(DEV_NAME);
+
 	/* Input Task Config */
 	DAQmxErrChk(DAQmxCreateTask("", &AItaskHandle));
 	DAQmxErrChk(DAQmxCreateAIVoltageChan(AItaskHandle, R_CH_ORIGIN, "", DAQmx_Val_Diff, -10.0, 10.0, DAQmx_Val_Volts, NULL));
@@ -82,18 +85,18 @@ int main()
 
 	DAQmxErrChk(DAQmxCfgSampClkTiming(AItaskHandle, "", R_SAMPLING_RATE, DAQmx_Val_Rising, DAQmx_Val_ContSamps, R_PER_CH));
 	DAQmxErrChk(GetTerminalNameWithDevPrefix(AItaskHandle, "ai/StartTrigger", trigName));
-	DAQmxErrChk(DAQmxSetBufInputBufSize(AItaskHandle, R_BUF_LEN * 2)); // overright pc input buf size
+	DAQmxErrChk(DAQmxSetBufInputBufSize(AItaskHandle, R_BUF_LEN)); // overright pc input buf size
 
 	/* Output Task Config */
 	DAQmxErrChk(DAQmxCreateTask("", &AOtaskHandle));
 	DAQmxErrChk(DAQmxCreateAOVoltageChan(AOtaskHandle, W_CH, "", -10.0, 10.0, DAQmx_Val_Volts, NULL));
 
 	/* Log File Config */
-	DAQmxErrChk(DAQmxConfigureLogging(AItaskHandle, "D:\\data\\AI2AO.tdms", DAQmx_Val_LogAndRead, "AIs", DAQmx_Val_OpenOrCreate));
+	// DAQmxErrChk(DAQmxConfigureLogging(AItaskHandle, "D:\\data\\AI2AO.tdms", DAQmx_Val_LogAndRead, "AIs", DAQmx_Val_OpenOrCreate));
 
 	/* TODO: Verify 讀和寫 per channel 數量不一樣可不可以? */
 	/* TODO: WHY 兩個的 CLK 不一樣 */
-	DAQmxErrChk(DAQmxCfgSampClkTiming(AOtaskHandle, "", R_SAMPLING_RATE / 2, DAQmx_Val_Rising, DAQmx_Val_FiniteSamps, N_SAMPLES));
+	// DAQmxErrChk(DAQmxCfgSampClkTiming(AOtaskHandle, "", R_SAMPLING_RATE / 2, DAQmx_Val_Rising, DAQmx_Val_FiniteSamps, N_SAMPLES));
 
 	struct RCallbackInfo r_info = {
 	   .data = AIdata,
@@ -113,11 +116,38 @@ int main()
 
 	/* 讀更新 r_ptr , 寫更新 w_ptr */
 	DAQmxErrChk(DAQmxRegisterEveryNSamplesEvent(AItaskHandle, DAQmx_Val_Acquired_Into_Buffer, N_SAMPLES, 0, R_EveryNCallback, r_info_ptr));
-	DAQmxErrChk(DAQmxRegisterDoneEvent(AOtaskHandle, 0, W_DoneCallback, w_info_ptr)); // TODO: open new thread avoid stuck ?
+	// DAQmxErrChk(DAQmxRegisterDoneEvent(AOtaskHandle, 0, W_DoneCallback, w_info_ptr)); // TODO: open new thread avoid stuck ?
 
 	/* Preload Default Value to Write RAM Buf */
-	DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 10.0, DAQmx_Val_GroupByChannel, AIdata, NULL, NULL));
+	// DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 10.0, DAQmx_Val_GroupByChannel, AIdata, NULL, NULL));
 
+
+	/* Func may use -- setting */
+	// DAQmxErrChk(DAQmxSetAODataXferMech(AOtaskHandle, W_CH, DAQmx_Val_USBbulk)); // DAQmx_Val_ProgrammedIO
+	DAQmxErrChk(DAQmxSetAODataXferReqCond(AOtaskHandle, W_CH, DAQmx_Val_OnBrdMemNotFull));
+	DAQmxErrChk(DAQmxSetBufOutputOnbrdBufSize(AOtaskHandle, 8191));
+
+	DAQmxErrChk(DAQmxSetBufOutputBufSize(AOtaskHandle, 0));
+
+	/* Func may use -- getting */
+	int32 AIonBoardBufSize = 0;
+	DAQmxErrChk(DAQmxGetBufInputOnbrdBufSize(AItaskHandle, &AIonBoardBufSize));
+	printf("Input On Board Buffer Size: %d\n", AIonBoardBufSize);
+
+	int32 AOonBoardBufSize = 0;
+	DAQmxErrChk(DAQmxGetBufOutputOnbrdBufSize(AOtaskHandle, &AOonBoardBufSize));
+	printf("Output On Board Buffer Size: %d\n", AOonBoardBufSize);
+
+	int32 XferMechAO = 0;
+	DAQmxErrChk(DAQmxGetAODataXferMech(AOtaskHandle, W_CH, &XferMechAO));
+	printf("Xfer Mech Output is: %d\n", XferMechAO);
+
+	int32 XferReqCondAO = 0;
+	DAQmxErrChk(DAQmxGetAODataXferReqCond(AOtaskHandle, W_CH, &XferReqCondAO));
+	printf("Xfer Request Condition Output is: %d\n", XferReqCondAO);
+
+	printf("Acquiring samples continuously. Press Enter to interrupt\n");
+	printf("\nRead:\tAI\tTotal:\tAI\tround\n");
 	
     /*********************************************/
 	// DAQmx Start Code
@@ -125,8 +155,16 @@ int main()
 	DAQmxErrChk(DAQmxStartTask(AItaskHandle));
 	DAQmxErrChk(DAQmxStartTask(AOtaskHandle));
 
-	printf("Acquiring samples continuously. Press Enter to interrupt\n");
-	printf("\nRead:\tAI\tTotal:\tAI\tround\n");
+	// main loop 
+	int i = 0;
+	while (true) {
+		DAQmxWriteAnalogScalarF64(AOtaskHandle, 0, 0.01, 0, NULL);
+		// DAQmxErrChk(DAQmxWriteAnalogF64(AOtaskHandle, N_SAMPLES, FALSE, 1, DAQmx_Val_GroupByChannel, AIdata, NULL, NULL));
+		i++;
+		if (i % 1000 == 0) {
+			printf("%d", i);
+		}
+	}
 	getchar();
 
 
